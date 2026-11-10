@@ -1,0 +1,117 @@
+"""
+Configurações do projeto SEC MAIS.
+
+Este módulo centraliza todas as configurações do projeto,
+lendo valores do arquivo .env via pydantic-settings.
+"""
+
+from pathlib import Path
+from typing import Optional
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Diretório raiz do projeto (dois níveis acima deste arquivo)
+PROJETO_ROOT = Path(__file__).parent.parent
+
+
+class ConfiguracoesOracle(BaseSettings):
+    """Configurações de conexão com o banco Oracle."""
+
+    model_config = SettingsConfigDict(env_prefix="ORACLE_", env_file=".env", extra="ignore")
+
+    host: str = Field(default="", description="Host do servidor Oracle")
+    port: int = Field(default=1521, description="Porta do servidor Oracle")
+    service: str = Field(default="", description="Nome do serviço Oracle")
+    user: str = Field(default="", description="Usuário do banco Oracle")
+    password: str = Field(default="", description="Senha do banco Oracle")
+    schema: str = Field(default="", description="Schema padrão do Oracle")
+
+    @property
+    def dsn(self) -> str:
+        """Retorna a string de conexão DSN para o Oracle."""
+        return f"{self.host}:{self.port}/{self.service}"
+
+    @property
+    def esta_configurado(self) -> bool:
+        """Verifica se as configurações mínimas estão preenchidas."""
+        return bool(self.host and self.service and self.user and self.password)
+
+
+class ConfiguracoesPostgres(BaseSettings):
+    """Configurações de conexão com o banco PostgreSQL."""
+
+    model_config = SettingsConfigDict(env_prefix="PG_", env_file=".env", extra="ignore")
+
+    host: str = Field(default="", description="Host do servidor PostgreSQL")
+    port: int = Field(default=5432, description="Porta do servidor PostgreSQL")
+    database: str = Field(default="", description="Nome do banco de dados PostgreSQL")
+    user: str = Field(default="", description="Usuário do banco PostgreSQL")
+    password: str = Field(default="", description="Senha do banco PostgreSQL")
+    schema: str = Field(default="public", description="Schema padrão do PostgreSQL")
+
+    @property
+    def connection_string(self) -> str:
+        """Retorna a string de conexão SQLAlchemy para o PostgreSQL."""
+        return (
+            f"postgresql+psycopg2://{self.user}:{self.password}"
+            f"@{self.host}:{self.port}/{self.database}"
+        )
+
+    @property
+    def esta_configurado(self) -> bool:
+        """Verifica se as configurações mínimas estão preenchidas."""
+        return bool(self.host and self.database and self.user and self.password)
+
+
+class ConfiguracoesSpark(BaseSettings):
+    """Configurações do Apache Spark."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    spark_master: str = Field(default="local[*]", description="Master URL do Spark")
+    spark_app_name: str = Field(default="sec_mais", description="Nome da aplicação Spark")
+
+
+class Configuracoes(BaseSettings):
+    """Configurações gerais do projeto SEC MAIS."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Ambiente de execução
+    ambiente: str = Field(default="desenvolvimento", description="Ambiente de execução")
+    log_level: str = Field(default="INFO", description="Nível de log")
+
+    # Caminho base de armazenamento (usa padrão relativo ao projeto se vazio)
+    storage_base_path: Optional[str] = Field(
+        default=None, description="Caminho base para armazenamento"
+    )
+
+    @property
+    def caminho_armazenamento(self) -> Path:
+        """Retorna o caminho base de armazenamento."""
+        if self.storage_base_path:
+            return Path(self.storage_base_path)
+        return PROJETO_ROOT / "armazenamento"
+
+    @property
+    def caminho_bronze(self) -> Path:
+        """Retorna o caminho da camada bronze."""
+        return self.caminho_armazenamento / "bronze"
+
+    @property
+    def caminho_prata(self) -> Path:
+        """Retorna o caminho da camada prata."""
+        return self.caminho_armazenamento / "prata"
+
+    @property
+    def caminho_ouro(self) -> Path:
+        """Retorna o caminho da camada ouro."""
+        return self.caminho_armazenamento / "ouro"
+
+
+# Instâncias singleton das configurações
+configuracoes = Configuracoes()
+configuracoes_oracle = ConfiguracoesOracle()
+configuracoes_postgres = ConfiguracoesPostgres()
+configuracoes_spark = ConfiguracoesSpark()

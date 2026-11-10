@@ -1,0 +1,47 @@
+name: 'dbt_sec_mais'
+version: '1.0.0'
+config-version: 2
+
+# Profile de conexão (definido em profiles.yml)
+profile: 'sec_mais_duckdb'
+
+# Caminhos do projeto
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+# Diretório de saída
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Configurações dos modelos
+models:
+  dbt_sec_mais:
+    # Camada de staging: views sobre os arquivos Parquet da camada ouro
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ["staging"]
+
+    # Camada marts: tabelas analíticas finais
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ["marts"]
+
+# Variáveis do projeto
+vars:
+  # Caminho base do armazenamento local (relativo ao diretório raiz do projeto)
+  storage_base_path: "../armazenamento"
+
+  # Nomes dos programas
+  programas:
+    - bolsa_presenca
+    - universidade_para_todos
+    - mais_estudos
+    - pe_de_meia

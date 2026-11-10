@@ -1,0 +1,76 @@
+version: 2
+
+sources:
+  - name: ouro
+    description: "Camada ouro do armazenamento local - dados analíticos prontos"
+    tables:
+      - name: bolsa_presenca
+        description: "Dados do programa Bolsa Presença na camada ouro"
+      - name: universidade_para_todos
+        description: "Dados do programa Universidade Para Todos na camada ouro"
+      - name: mais_estudos
+        description: "Dados do programa Mais Estudos na camada ouro"
+      - name: pe_de_meia
+        description: "Dados do programa Pé-de-Meia na camada ouro"
+
+models:
+  - name: stg_bolsa_presenca
+    description: >
+      Staging do programa Bolsa Presença.
+      Lê da camada ouro e aplica tipagens e renomeações para padronização.
+    columns:
+      - name: cd_aluno
+        description: "Código único do aluno"
+        tests:
+          - not_null
+      - name: nm_aluno
+        description: "Nome do aluno"
+      - name: dt_referencia
+        description: "Data de referência do benefício"
+        tests:
+          - not_null
+
+  - name: stg_universidade_para_todos
+    description: >
+      Staging do programa Universidade Para Todos (UPT).
+    columns:
+      - name: cd_beneficiario
+        description: "Código único do beneficiário"
+        tests:
+          - not_null
+      - name: nm_beneficiario
+        description: "Nome do beneficiário"
+      - name: dt_referencia
+        description: "Data de referência do benefício"
+        tests:
+          - not_null
+
+  - name: stg_mais_estudos
+    description: >
+      Staging do programa Mais Estudos.
+    columns:
+      - name: cd_aluno
+        description: "Código único do aluno"
+        tests:
+          - not_null
+      - name: nm_aluno
+        description: "Nome do aluno"
+      - name: dt_referencia
+        description: "Data de referência"
+        tests:
+          - not_null
+
+  - name: stg_pe_de_meia
+    description: >
+      Staging do programa Pé-de-Meia.
+    columns:
+      - name: cd_beneficiario
+        description: "Código único do beneficiário"
+        tests:
+          - not_null
+      - name: nm_beneficiario
+        description: "Nome do beneficiário"
+      - name: dt_referencia
+        description: "Data de referência"
+        tests:
+          - not_null

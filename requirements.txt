@@ -1,0 +1,30 @@
+# Extração e Banco de Dados
+cx_Oracle>=8.3.0
+psycopg2-binary>=2.9.9
+SQLAlchemy>=2.0.0
+
+# Processamento de Dados
+pyspark>=3.5.0
+pandas>=2.1.0
+pyarrow>=14.0.0
+
+# Orquestração
+apache-airflow>=2.8.0
+apache-airflow-providers-oracle>=3.6.0
+
+# dbt
+dbt-core>=1.7.0
+dbt-duckdb>=1.7.0
+
+# Utilitários
+python-dotenv>=1.0.0
+loguru>=0.7.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Verificação de Rede
+requests>=2.31.0
+
+# Testes
+pytest>=7.4.0
+pytest-cov>=4.1.0

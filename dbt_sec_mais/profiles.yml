@@ -1,0 +1,27 @@
+# profiles.yml do projeto SEC MAIS
+#
+# Usa DuckDB como engine analítico, lendo diretamente
+# dos arquivos Parquet da camada ouro do armazenamento local.
+#
+# ATENÇÃO: Este arquivo pode conter caminhos locais.
+#          Não commite informações sensíveis.
+
+sec_mais_duckdb:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../armazenamento/sec_mais_analytics.duckdb"
+      threads: 4
+      # Extensões DuckDB necessárias
+      extensions:
+        - parquet
+        - json
+
+    prod:
+      type: duckdb
+      path: "../armazenamento/sec_mais_analytics_prod.duckdb"
+      threads: 8
+      extensions:
+        - parquet
+        - json

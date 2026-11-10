@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: dim_estudante
+    description: >
+      Dimensão de estudantes: consolida beneficiários únicos
+      de todos os programas SEC MAIS.
+    columns:
+      - name: sk_estudante
+        description: "Surrogate key do estudante"
+        tests:
+          - unique
+          - not_null
+      - name: cd_estudante
+        description: "Código original do estudante/beneficiário"
+        tests:
+          - not_null
+      - name: nm_estudante
+        description: "Nome do estudante"
+
+  - name: dim_programa
+    description: "Dimensão de programas SEC MAIS"
+    columns:
+      - name: sk_programa
+        description: "Surrogate key do programa"
+        tests:
+          - unique
+          - not_null
+      - name: cd_programa
+        description: "Código/slug do programa"
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              values:
+                - bolsa_presenca
+                - universidade_para_todos
+                - mais_estudos
+                - pe_de_meia
+      - name: nm_programa
+        description: "Nome completo do programa"
+
+  - name: fct_beneficios
+    description: >
+      Tabela fato de benefícios: integra os 4 programas SEC MAIS
+      em uma visão unificada de beneficiários e períodos.
+    columns:
+      - name: sk_beneficio
+        description: "Surrogate key do benefício"
+        tests:
+          - unique
+          - not_null
+      - name: cd_estudante
+        description: "Código do estudante/beneficiário"
+        tests:
+          - not_null
+      - name: cd_programa
+        description: "Código do programa"
+        tests:
+          - not_null
+      - name: dt_referencia
+        description: "Data de referência do benefício"
+        tests:
+          - not_null
