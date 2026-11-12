@@ -15,17 +15,34 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJETO_ROOT = Path(__file__).parent.parent
 
 
+# Caminhos possíveis para o .env (tanto na raiz do repo quanto um nível acima)
+ARQUIVOS_ENV = (
+    str(PROJETO_ROOT / ".env"),
+    str(PROJETO_ROOT.parent / ".env"),
+    ".env",
+)
+
+
 class ConfiguracoesOracle(BaseSettings):
     """Configurações de conexão com o banco Oracle."""
 
-    model_config = SettingsConfigDict(env_prefix="ORACLE_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="ORACLE_",
+        env_file=ARQUIVOS_ENV,
+        extra="ignore",
+    )
 
     host: str = Field(default="", description="Host do servidor Oracle")
     port: int = Field(default=1521, description="Porta do servidor Oracle")
     service: str = Field(default="", description="Nome do serviço Oracle")
     user: str = Field(default="", description="Usuário do banco Oracle")
     password: str = Field(default="", description="Senha do banco Oracle")
-    schema: str = Field(default="", description="Schema padrão do Oracle")
+    schema_name: str = Field(default="", validation_alias="ORACLE_SCHEMA", description="Schema padrão do Oracle")
+
+    @property
+    def schema(self) -> str:
+        """Alias para schema_name evitando shadowing no Pydantic."""
+        return self.schema_name
 
     @property
     def dsn(self) -> str:
@@ -41,14 +58,23 @@ class ConfiguracoesOracle(BaseSettings):
 class ConfiguracoesPostgres(BaseSettings):
     """Configurações de conexão com o banco PostgreSQL."""
 
-    model_config = SettingsConfigDict(env_prefix="PG_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="PG_",
+        env_file=ARQUIVOS_ENV,
+        extra="ignore",
+    )
 
     host: str = Field(default="", description="Host do servidor PostgreSQL")
     port: int = Field(default=5432, description="Porta do servidor PostgreSQL")
     database: str = Field(default="", description="Nome do banco de dados PostgreSQL")
     user: str = Field(default="", description="Usuário do banco PostgreSQL")
     password: str = Field(default="", description="Senha do banco PostgreSQL")
-    schema: str = Field(default="public", description="Schema padrão do PostgreSQL")
+    schema_name: str = Field(default="public", validation_alias="PG_SCHEMA", description="Schema padrão do PostgreSQL")
+
+    @property
+    def schema(self) -> str:
+        """Alias para schema_name evitando shadowing no Pydantic."""
+        return self.schema_name
 
     @property
     def connection_string(self) -> str:

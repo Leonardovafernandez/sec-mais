@@ -68,17 +68,22 @@ class ConectorOracle:
             ConnectionError: Se não for possível criar a engine.
         """
         try:
-            # cx_Oracle é necessário para esta conexão
-            import cx_Oracle  # noqa: F401
+            # Tenta oracledb (driver moderno oficial da Oracle) ou cx_Oracle (legado)
+            try:
+                import oracledb
+                dialeto = "oracle+oracledb"
+            except ImportError:
+                import cx_Oracle  # noqa: F401
+                dialeto = "oracle+cx_oracle"
 
             dsn = self._configuracoes.dsn
             usuario = self._configuracoes.user
             # A senha não é logada por segurança
 
-            logger.info(f"Criando conexão Oracle: {usuario}@{dsn}")
+            logger.info(f"Criando conexão Oracle ({dialeto}): {usuario}@{dsn}")
 
             engine = create_engine(
-                f"oracle+cx_oracle://{usuario}:{self._configuracoes.password}@{dsn}",
+                f"{dialeto}://{usuario}:{self._configuracoes.password}@{dsn}",
                 pool_pre_ping=True,  # Verifica a conexão antes de usar
                 pool_size=5,
                 max_overflow=10,
@@ -88,8 +93,8 @@ class ConectorOracle:
 
         except ImportError:
             raise ImportError(
-                "Pacote cx_Oracle não encontrado. "
-                "Instale com: pip install cx_Oracle"
+                "Driver Oracle (oracledb) não encontrado. "
+                "Instale com: pip install oracledb"
             )
         except Exception as e:
             raise ConnectionError(f"Falha ao criar engine Oracle: {e}") from e

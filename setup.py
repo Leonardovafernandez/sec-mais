@@ -19,7 +19,7 @@ setup(
         exclude=["tests*", "*.tests*", "dbt_sec_mais*", "airflow*"]
     ),
     install_requires=[
-        "cx_Oracle>=8.3.0",
+        "oracledb>=2.0.0",
         "psycopg2-binary>=2.9.9",
         "SQLAlchemy>=2.0.0",
         "pandas>=2.1.0",
