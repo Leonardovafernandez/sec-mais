@@ -21,36 +21,22 @@ from utils.vpn_check import verificar_vpn_postgres
 NOME_PROGRAMA = "universidade_para_todos"
 
 # =============================================================================
-# QUERY DE EXTRAÇÃO - Preencha com a query real após obter acesso ao banco
+# QUERY DE EXTRAÇÃO - SGBD: Postgres 16 | Banco: UPT | Esquema: UPT
 # =============================================================================
-# Exemplo de estrutura esperada:
-#
-# QUERY_UPT = """
-#     SELECT
-#         cd_beneficiario,
-#         nm_beneficiario,
-#         cd_cpf,
-#         cd_instituicao,
-#         nm_instituicao,
-#         nm_curso,
-#         dt_inicio_beneficio,
-#         dt_fim_beneficio,
-#         vl_bolsa,
-#         st_situacao,
-#         cd_municipio,
-#         nm_municipio,
-#         dt_referencia
-#     FROM
-#         {schema}.tb_universidade_para_todos
-#     WHERE
-#         dt_referencia BETWEEN %(data_inicio)s AND %(data_fim)s
-# """
 QUERY_UPT = """
-    -- TODO: Substituir pela query real do programa Universidade Para Todos (UPT)
-    SELECT
-        1 AS cd_beneficiario,
-        'BENEFICIARIO EXEMPLO' AS nm_beneficiario,
-        CURRENT_DATE AS dt_referencia
+    SELECT 
+        dc.MATRICULA,
+        dp.NOME AS NOME_ESTUDANTE,
+        dp.NOME_SOCIAL AS NOME_SOCIAL_ESTUDANTE,
+        u.CPF AS CPF_ESTUDANTE,
+        i.ID AS NUMERO_INSCRICAO,
+        si.STATUS AS STATUS_UPT
+    FROM {schema}.USUARIO u
+    LEFT JOIN {schema}.DADO_CANDIDATO dc ON u.ID = dc.USUARIO_ID
+    LEFT JOIN {schema}.DADOS_PESSOAIS dp ON u.ID = dp.USUARIO_ID
+    LEFT JOIN {schema}.INSCRICAO i ON u.ID = i.USUARIO_ID
+    LEFT JOIN {schema}.VW_STATUS_INSCRICOES vsi ON i.ID = vsi.INSCRICAO_ID
+    LEFT JOIN {schema}.STATUS_INSCRICAO si ON vsi.STATUS_INSCRICAO_ID = si.ID
 """
 # =============================================================================
 
@@ -84,11 +70,13 @@ def extrair_universidade_para_todos(
 
     logger.info(f"🚀 Iniciando extração do UPT | Execução: {data_execucao}")
 
+    from config.settings import configuracoes_postgres_upt
+
     if verificar_vpn:
-        logger.info("Verificando conectividade VPN...")
-        if not verificar_vpn_postgres():
+        logger.info("Verificando conectividade VPN UPT...")
+        if not verificar_vpn_postgres(host=configuracoes_postgres_upt.host, port=configuracoes_postgres_upt.port):
             raise ConnectionError(
-                "VPN não está ativa. Ative a VPN antes de executar a extração do UPT."
+                "VPN não está ativa ou host UPT inacessível. Verifique a conexão com a VPN."
             )
 
     params = {}
@@ -99,9 +87,10 @@ def extrair_universidade_para_todos(
 
     logger.info("Conectando ao banco PostgreSQL...")
 
-    with ConectorPostgres(verificar_vpn=False) as conector:
-        from config.settings import configuracoes_postgres
-        schema = configuracoes_postgres.schema or "public"
+    from config.settings import configuracoes_postgres_upt
+
+    with ConectorPostgres(config=configuracoes_postgres_upt, verificar_vpn=False) as conector:
+        schema = configuracoes_postgres_upt.schema or "UPT"
         query = QUERY_UPT.format(schema=schema)
 
         df = conector.executar_query(query, params=params if params else None)

@@ -109,14 +109,20 @@ def verificar_vpn_oracle() -> bool:
     return resultado.acessivel
 
 
-def verificar_vpn_postgres() -> bool:
+def verificar_vpn_postgres(host: str | None = None, port: int | None = None) -> bool:
     """
     Verifica se o banco PostgreSQL está acessível (VPN ativa).
+
+    Args:
+        host: Host específico a verificar (opcional, padrão configuracoes_postgres.host).
+        port: Porta específica (opcional, padrão configuracoes_postgres.port).
 
     Returns:
         True se acessível, False caso contrário.
     """
-    resultado = verificar_host(configuracoes_postgres.host, configuracoes_postgres.port)
+    alvo_host = host or configuracoes_postgres.host
+    alvo_port = port or configuracoes_postgres.port
+    resultado = verificar_host(alvo_host, alvo_port)
 
     if resultado.acessivel:
         logger.info(f"✅ PostgreSQL acessível: {resultado.mensagem}")

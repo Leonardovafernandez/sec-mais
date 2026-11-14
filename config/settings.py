@@ -56,7 +56,7 @@ class ConfiguracoesOracle(BaseSettings):
 
 
 class ConfiguracoesPostgres(BaseSettings):
-    """Configurações de conexão com o banco PostgreSQL."""
+    """Configurações de conexão com o banco PostgreSQL (genérica)."""
 
     model_config = SettingsConfigDict(
         env_prefix="PG_",
@@ -70,6 +70,7 @@ class ConfiguracoesPostgres(BaseSettings):
     user: str = Field(default="", description="Usuário do banco PostgreSQL")
     password: str = Field(default="", description="Senha do banco PostgreSQL")
     schema_name: str = Field(default="public", validation_alias="PG_SCHEMA", description="Schema padrão do PostgreSQL")
+    sslmode: str = Field(default="prefer", description="Modo SSL do PostgreSQL")
 
     @property
     def schema(self) -> str:
@@ -79,15 +80,45 @@ class ConfiguracoesPostgres(BaseSettings):
     @property
     def connection_string(self) -> str:
         """Retorna a string de conexão SQLAlchemy para o PostgreSQL."""
+        ssl_param = f"?sslmode={self.sslmode}" if self.sslmode else ""
         return (
             f"postgresql+psycopg2://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.database}"
+            f"@{self.host}:{self.port}/{self.database}{ssl_param}"
         )
 
     @property
     def esta_configurado(self) -> bool:
         """Verifica se as configurações mínimas estão preenchidas."""
         return bool(self.host and self.database and self.user and self.password)
+
+
+class ConfiguracoesPostgresUPT(ConfiguracoesPostgres):
+    """Configurações de conexão específicas para o banco UPT (PostgreSQL 16)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="PG_UPT_",
+        env_file=ARQUIVOS_ENV,
+        extra="ignore",
+    )
+    database: str = Field(default="upt")
+    schema_name: str = Field(default="upt", validation_alias="PG_UPT_SCHEMA")
+    sslmode: str = Field(default="disable", validation_alias="PG_UPT_SSLMODE")
+
+
+class ConfiguracoesPostgresPDM(ConfiguracoesPostgres):
+    """Configurações de conexão específicas para o banco Pé de Meia - SIGEDUC (PostgreSQL 13)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="PG_PDM_",
+        env_file=ARQUIVOS_ENV,
+        extra="ignore",
+    )
+    database: str = Field(default="sigeduc")
+    schema_name: str = Field(
+        default="integracao_sgp_beneficio_estudantil",
+        validation_alias="PG_PDM_SCHEMA",
+    )
+    sslmode: str = Field(default="prefer", validation_alias="PG_PDM_SSLMODE")
 
 
 class ConfiguracoesSpark(BaseSettings):
@@ -140,4 +171,6 @@ class Configuracoes(BaseSettings):
 configuracoes = Configuracoes()
 configuracoes_oracle = ConfiguracoesOracle()
 configuracoes_postgres = ConfiguracoesPostgres()
+configuracoes_postgres_upt = ConfiguracoesPostgresUPT()
+configuracoes_postgres_pdm = ConfiguracoesPostgresPDM()
 configuracoes_spark = ConfiguracoesSpark()

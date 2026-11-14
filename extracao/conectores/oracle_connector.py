@@ -172,7 +172,6 @@ class ConectorOracle:
             logger.error(f"❌ Erro ao executar query Oracle: {e}")
             raise
 
-    @contextmanager
     def __enter__(self) -> "ConectorOracle":
         """Suporte ao context manager (with statement)."""
         self.conectar()

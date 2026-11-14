@@ -15,7 +15,7 @@ from loguru import logger
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
-from config.settings import configuracoes_postgres
+from config.settings import configuracoes_postgres, ConfiguracoesPostgres
 from utils.vpn_check import exigir_vpn_postgres
 
 
@@ -31,16 +31,21 @@ class ConectorPostgres:
             df = conector.executar_query("SELECT * FROM minha_tabela")
     """
 
-    def __init__(self, verificar_vpn: bool = True) -> None:
+    def __init__(
+        self,
+        config: ConfiguracoesPostgres | None = None,
+        verificar_vpn: bool = True,
+    ) -> None:
         """
         Inicializa o conector PostgreSQL.
 
         Args:
+            config: Instância de configurações (UPT, PDM ou genérica).
             verificar_vpn: Se True, verifica a conectividade antes de conectar.
         """
         self._verificar_vpn = verificar_vpn
         self._engine: Engine | None = None
-        self._configuracoes = configuracoes_postgres
+        self._configuracoes = config if config is not None else configuracoes_postgres
 
     def _validar_configuracoes(self) -> None:
         """
@@ -74,16 +79,20 @@ class ConectorPostgres:
 
             logger.info(f"Criando conexão PostgreSQL: {usuario}@{host}/{self._configuracoes.database}")
 
+            connect_args = {
+                "options": f"-csearch_path={schema}",
+                "connect_timeout": 10,
+            }
+            if getattr(self._configuracoes, "sslmode", None):
+                connect_args["sslmode"] = self._configuracoes.sslmode
+
             engine = create_engine(
                 conn_str,
                 pool_pre_ping=True,  # Verifica a conexão antes de usar
                 pool_size=5,
                 max_overflow=10,
                 echo=False,
-                connect_args={
-                    "options": f"-csearch_path={schema}",
-                    "connect_timeout": 10,
-                },
+                connect_args=connect_args,
             )
             return engine
 

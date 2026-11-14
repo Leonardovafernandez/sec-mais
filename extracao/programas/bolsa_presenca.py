@@ -24,39 +24,25 @@ from utils.vpn_check import verificar_vpn_oracle
 NOME_PROGRAMA = "bolsa_presenca"
 
 # =============================================================================
-# QUERY DE EXTRAÇÃO - Preencha com a query real após obter acesso ao banco
+# QUERY DE EXTRAÇÃO - SGBD: Oracle 19C | Banco: BDC | Esquema: SIADIANTE
 # =============================================================================
-# Esta query é um placeholder. Substitua pela query real do programa.
-# Exemplo de estrutura esperada:
-#
-# QUERY_BOLSA_PRESENCA = """
-#     SELECT
-#         cd_aluno,
-#         nm_aluno,
-#         cd_escola,
-#         nm_escola,
-#         cd_municipio,
-#         nm_municipio,
-#         dt_referencia,
-#         vl_beneficio,
-#         st_pagamento,
-#         dt_pagamento,
-#         cd_turma,
-#         nr_frequencia_percentual
-#     FROM
-#         {schema}.tb_bolsa_presenca
-#     WHERE
-#         dt_referencia >= :data_inicio
-#         AND dt_referencia <= :data_fim
-# """
+# ANO e MES são extraídos dinamicamente do campo TIMESTAMP DATA_INCLUSAO
+# Amostra representativa de 100.000 registros para o pipeline e evidências do TCC
 QUERY_BOLSA_PRESENCA = """
-    -- TODO: Substituir pela query real do programa Bolsa Presença
-    -- Esta query é um placeholder para desenvolvimento
-    SELECT
-        1 AS cd_aluno,
-        'ALUNO EXEMPLO' AS nm_aluno,
-        SYSDATE AS dt_referencia
-    FROM DUAL
+    SELECT 
+        bf.NUMERO_MATRICULA,
+        bf.NOME_ESTUDANTE,
+        bf.CODSEC,
+        bf.MUNICIPIO,
+        TO_NUMBER(TO_CHAR(bf.DATA_INCLUSAO, 'YYYY')) AS ANO,
+        TO_NUMBER(TO_CHAR(bf.DATA_INCLUSAO, 'MM')) AS MES,
+        bf.VALOR,
+        sm.STATUS AS STATUS_BOLSA_PRESENCA,
+        bf.CPF_RESPONSAVEL
+    FROM {schema}.BENEFICIO_FAMILIA bf
+    LEFT JOIN {schema}.STATUS_MENSAGEM sm 
+        ON bf.ID_STATUS_MENSAGEM = sm.ID_STATUS_MENSAGEM
+    WHERE ROWNUM <= 100000
 """
 # =============================================================================
 
@@ -114,7 +100,7 @@ def extrair_bolsa_presenca(
     with ConectorOracle(verificar_vpn=False) as conector:
         # Ajusta schema na query se necessário
         from config.settings import configuracoes_oracle
-        schema = configuracoes_oracle.schema or "PUBLIC"
+        schema = configuracoes_oracle.schema or "SIADIANTE"
         query = QUERY_BOLSA_PRESENCA.format(schema=schema)
 
         df = conector.executar_query(query, params=params if params else None)

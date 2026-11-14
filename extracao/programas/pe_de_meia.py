@@ -21,35 +21,18 @@ from utils.vpn_check import verificar_vpn_postgres
 NOME_PROGRAMA = "pe_de_meia"
 
 # =============================================================================
-# QUERY DE EXTRAÇÃO - Preencha com a query real após obter acesso ao banco
+# QUERY DE EXTRAÇÃO - SGBD: Postgres 13.13 | Banco: SIGEDUC | Esquema: integracao_sgp_beneficio_estudantil
 # =============================================================================
-# Exemplo de estrutura esperada:
-#
-# QUERY_PE_DE_MEIA = """
-#     SELECT
-#         cd_beneficiario,
-#         nm_beneficiario,
-#         cd_cpf,
-#         cd_escola,
-#         nm_escola,
-#         cd_serie,
-#         vl_poupanca_acumulada,
-#         vl_deposito_mensal,
-#         dt_referencia,
-#         st_situacao,
-#         cd_municipio,
-#         nm_municipio
-#     FROM
-#         {schema}.tb_pe_de_meia
-#     WHERE
-#         dt_referencia BETWEEN %(data_inicio)s AND %(data_fim)s
-# """
 QUERY_PE_DE_MEIA = """
-    -- TODO: Substituir pela query real do programa Pé-de-Meia
-    SELECT
-        1 AS cd_beneficiario,
-        'BENEFICIARIO EXEMPLO' AS nm_beneficiario,
-        CURRENT_DATE AS dt_referencia
+    SELECT 
+        em.CO_MATRICULA_REDE AS MATRICULA,
+        es.ESTUDANTE_NOME AS NOME_ESTUDANTE,
+        es.ESTUDANTE_CPF AS CPF_ESTUDANTE,
+        em.NU_ANO_MATRICULA AS ANO,
+        em.ESTUDANTE_MATRICULA_SITUACAO_DESCRICAO AS STATUS_PE_DE_MEIA
+    FROM {schema}.ESTUDANTES_SGP es
+    INNER JOIN {schema}.ESTUDANTES_SGP_MATRICULAS em
+        ON es.ID_SGP_ESTUDANTE = em.ID_SGP_ESTUDANTE
 """
 # =============================================================================
 
@@ -98,9 +81,10 @@ def extrair_pe_de_meia(
 
     logger.info("Conectando ao banco PostgreSQL...")
 
-    with ConectorPostgres(verificar_vpn=False) as conector:
-        from config.settings import configuracoes_postgres
-        schema = configuracoes_postgres.schema or "public"
+    from config.settings import configuracoes_postgres_pdm
+
+    with ConectorPostgres(config=configuracoes_postgres_pdm, verificar_vpn=False) as conector:
+        schema = configuracoes_postgres_pdm.schema or "integracao_sgp_beneficio_estudantil"
         query = QUERY_PE_DE_MEIA.format(schema=schema)
 
         df = conector.executar_query(query, params=params if params else None)
