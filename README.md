@@ -14,7 +14,7 @@ dos principais programas de políticas públicas educacionais do Estado da Bahia
 |---|---|---|
 | **Bolsa Presença** | Oracle | Incentivo à frequência escolar |
 | **Universidade Para Todos (UPT)** | PostgreSQL | Acesso à educação superior |
-| **Mais Estudos** | Oracle | Atividades educacionais complementares |
+| **Mais Estudos** | Planilha | Atividades educacionais complementares |
 | **Pé-de-Meia** | PostgreSQL | Poupança estudantil do ensino médio |
 
 ---
@@ -37,45 +37,45 @@ dos principais programas de políticas públicas educacionais do Estado da Bahia
 │                        FONTES DE DADOS                           │
 │                      (Requerem VPN ativa)                        │
 │                                                                  │
-│    ┌────────────────┐          ┌────────────────┐                │
-│    │  Oracle DB     │          │  PostgreSQL DB  │                │
-│    │                │          │                 │                │
-│    │ • Bolsa Presença│          │ • UPT           │                │
-│    │ • Mais Estudos  │          │ • Pé-de-Meia    │                │
-│    └────────┬───────┘          └────────┬────────┘                │
-└─────────────┼────────────────────────── ┼───────────────────────┘
+│    ┌─────────────────┐          ┌─────────────────┐              │
+│    │  Oracle DB      │          │  PostgreSQL DB  │              │
+│    │                 │          │                 │              │
+│    │ • Bolsa Presença│          │ • UPT           │              │
+│    │ • Mais Estudos  │          │ • Pé-de-Meia    │              │
+│    └────────┬────────┘          └────────┬────────┘              │
+└─────────────┼────────────────────────────┼───────────────────────┘
               │   Python + SQLAlchemy      │
-              └──────────────┬────────────┘
+              └──────────────┬─────────────┘
                              ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────┐
 │                     CAMADA BRONZE                                │
 │              armazenamento/bronze/<programa>/                    │
 │                                                                  │
 │  Dados brutos • Formato Parquet • Particionado por data          │
-└──────────────────────────┬──────────────────────────────────────┘
+└──────────────────────────┬───────────────────────────────────────┘
                            │  Apache Spark
                            ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────┐
 │                     CAMADA PRATA                                 │
 │              armazenamento/prata/<programa>/                     │
 │                                                                  │
 │  Dados limpos • Tipagem correta • Sem duplicatas • Snake_case    │
-└──────────────────────────┬──────────────────────────────────────┘
+└──────────────────────────┬───────────────────────────────────────┘
                            │  Apache Spark
                            ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────┐
 │                     CAMADA OURO                                  │
 │               armazenamento/ouro/<programa>/                     │
 │                                                                  │
 │  Dados analíticos • Regras de negócio aplicadas • Para consumo   │
-└──────────────────────────┬──────────────────────────────────────┘
+└──────────────────────────┬───────────────────────────────────────┘
                            │  dbt + DuckDB
                            ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────┐
 │                   CAMADA ANALÍTICA (dbt)                         │
 │                                                                  │
 │  staging/ → marts/ (dim_estudante, dim_programa, fct_beneficios) │
-└─────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Stack Tecnológica
