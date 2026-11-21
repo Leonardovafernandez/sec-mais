@@ -1,237 +1,156 @@
-# Arquitetura do Projeto SEC MAIS
+# Arquitetura do Sistema SEC MAIS
 
-## Visão Geral
-
-O SEC MAIS é uma plataforma de engenharia de dados desenvolvida para a Secretaria de Educação
-do Estado da Bahia (SEC-BA), com o objetivo de integrar e consolidar dados de quatro programas
-de políticas públicas educacionais voltados para estudantes da rede estadual.
+> **Secretaria da Educação do Estado da Bahia (SEC-BA)**  
+> **Trabalho de Conclusão de Curso (TCC) — Engenharia de Dados**  
+> Documento de Arquitetura Técnica e Decisões de Engenharia
 
 ---
 
-## 1. Arquitetura Medalhão
+## 1. Visão Geral da Arquitetura
 
-O projeto implementa a **Arquitetura Medalhão** (Medallion Architecture), um padrão amplamente
-adotado em engenharia de dados que organiza os dados em três camadas progressivas de qualidade:
+O **SEC MAIS** é uma plataforma de engenharia de dados projetada para unificar, higienizar, modelar e disponibilizar analiticamente os dados de programas de políticas públicas educacionais do Estado da Bahia: **Bolsa Presença**, **Pé-de-Meia** e **Universidade Para Todos (UPT)**.
 
-### 1.1 Camada Bronze — Dados Brutos
-
-**Localização:** `armazenamento/bronze/<programa>/`
-
-**Propósito:** Preservar os dados exatamente como extraídos das fontes de origem, sem qualquer
-transformação. Funciona como uma "zona de pouso" (landing zone) auditável.
-
-**Características:**
-- Formato: Apache Parquet (compressão Snappy)
-- Particionamento: `ano=YYYY/mes=MM/dia=DD/`
-- Inclui colunas de controle: `_data_extracao`, `_programa`
-- Dados podem conter valores nulos, duplicatas, tipos inconsistentes
-- Versionamento: cada execução cria um novo arquivo (histórico preservado)
-
-**Subdiretórios:**
-```
-bronze/
-├── bolsa_presenca/
-├── universidade_para_todos/
-├── mais_estudos/
-└── pe_de_meia/
-```
-
-### 1.2 Camada Prata — Dados Padronizados
-
-**Localização:** `armazenamento/prata/<programa>/`
-
-**Propósito:** Dados limpos, padronizados e prontos para uso analítico básico.
-
-**Transformações aplicadas:**
-- Nomes de colunas em `snake_case` minúsculo
-- Remoção de duplicatas (`dropDuplicates()`)
-- Tipagem correta (strings, datas, números)
-- Remoção de espaços extras em strings
-- Substituição de strings vazias por `NULL`
-- Remoção de colunas de controle de extração
-
-**Tecnologia:** Apache Spark (PySpark)
-
-### 1.3 Camada Ouro — Dados Analíticos
-
-**Localização:** `armazenamento/ouro/<programa>/`
-
-**Propósito:** Dados prontos para consumo analítico, com regras de negócio aplicadas.
-
-**Transformações aplicadas:**
-- Derivações e classificações de negócio
-- Indicadores calculados (ex: faixas de frequência, categorias de situação)
-- Enriquecimentos e joins necessários
-- Preparação para consumo pelo dbt
-
-**Tecnologia:** Apache Spark (PySpark)
+A plataforma combina o padrão de **Arquitetura Medalhão** (Data Lake em camadas Bronze, Prata e Ouro) com a modelagem dimensional **Star Schema de Ralph Kimball** e uma **Camada Marts** disponibilizada em um **Data Warehouse Relacional Analítico (PostgreSQL em container Docker)** com **dupla persistência** (arquivos Apache Parquet e tabelas SQL relacionais).
 
 ---
 
-## 2. Fluxo de Dados
+## 2. Diagrama da Arquitetura de Dados
 
-```
-Oracle / PostgreSQL
-       │
-       │ (via VPN)
-       │ Verificação de conectividade
-       ▼
-   Extração (Python + SQLAlchemy)
-       │
-       │ Parquet particionado por data
-       ▼
-   BRONZE (dados brutos)
-       │
-       │ Spark: limpeza, padronização
-       ▼
-   PRATA (dados limpos)
-       │
-       │ Spark: regras de negócio
-       ▼
-   OURO (dados analíticos)
-       │
-       │ dbt + DuckDB: modelagem dimensional
-       ▼
-   MARTS (dim_*, fct_*)
-       │
-       ▼
-   Consumo (dashboards, relatórios, análises)
+```mermaid
+flowchart TD
+    subgraph FONTES["1. Fontes Transacionais Corporativas (Rede SEC-BA via VPN)"]
+        O1["Oracle SIADIANTE<br/>Bolsa Presença<br/>Porta 1521"]
+        P1["PostgreSQL SIGEDUC<br/>Pé-de-Meia<br/>Porta 5432"]
+        P2["PostgreSQL UPT<br/>Universidade Para Todos<br/>Porta 5435"]
+    end
+
+    subgraph EXTRACAO["2. Camada de Ingestão e Conectividade"]
+        EXT["Scripts Python + SQLAlchemy<br/>(Execução no Host com VPN ativa)"]
+    end
+
+    subgraph MEDALHAO["3. Data Lake Medalhão Local (Apache Parquet)"]
+        subgraph BRONZE["Camada Bronze (Raw Ingestion)"]
+            B1["armazenamento/bronze/<br/>Particionamento diário: ano/mes/dia<br/>Dados brutos imutáveis"]
+        end
+        subgraph PRATA["Camada Prata (Cleaned & Curated)"]
+            P_DATA["armazenamento/prata/<br/>Higienização: CPF, Matrícula, Nomes<br/>Deduplicação por Chave de Negócio<br/>Particionamento mensal: ano/mes"]
+        end
+        subgraph OURO_LAKE["Camada Ouro (Dimensional Star Schema)"]
+            O_DATA["armazenamento/ouro/<br/>fato_beneficio_estudante.parquet<br/>dim_estudante.parquet<br/>dim_programa.parquet<br/>dim_tempo.parquet<br/>dim_municipio.parquet"]
+        end
+    end
+
+    subgraph DW["4. Data Warehouse Analítico (PostgreSQL 16 Docker)"]
+        subgraph SCHEMA_OURO["Schema: ouro"]
+            DW_FATO["ouro.fato_beneficio_estudante"]
+            DW_EST["ouro.dim_estudante"]
+            DW_PROG["ouro.dim_programa"]
+            DW_TEMP["ouro.dim_tempo"]
+            DW_MUN["ouro.dim_municipio"]
+        end
+        subgraph SCHEMA_MARTS["Schema: marts (Analytical Views)"]
+            V1["vw_participacao_programas"]
+            V2["vw_sobreposicao_matriculas"]
+            V3["vw_resumo_sobreposicao"]
+            V4["vw_analise_financeira_bolsa_presenca"]
+            V5["vw_cobertura_relacionamento_fontes"]
+            V6["vw_indicadores_executivos_sprint3"]
+        end
+    end
+
+    subgraph CONSUMO["5. Consumo e Visualização Analítica"]
+        NOTEBOOKS["Jupyter Notebooks (Evidências Sprints 2 e 3)"]
+        BI["Ferramentas BI / Consultas SQL / Relatórios TCC"]
+    end
+
+    FONTES --> EXTRACAO
+    EXTRACAO --> BRONZE
+    BRONZE --> PRATA
+    PRATA --> OURO_LAKE
+    OURO_LAKE --> SCHEMA_OURO
+    SCHEMA_OURO --> SCHEMA_MARTS
+    SCHEMA_MARTS --> CONSUMO
 ```
 
 ---
 
-## 3. Fontes de Dados
+## 3. As Camadas do Data Lake Medalhão
 
-### Oracle Database
-Hospeda os programas:
-- **Bolsa Presença** — `tb_bolsa_presenca`
-- **Mais Estudos** — `tb_mais_estudos`
+### 3.1 Camada Bronze (Raw Ingestion)
+* **Localização:** `armazenamento/bronze/<programa>/ano=YYYY/mes=MM/dia=DD/`
+* **Formato:** Apache Parquet com compressão Snappy.
+* **Propósito:** Preservação estrita dos dados brutos tal como extraídos das fontes operacionais da SEC-BA, sem qualquer modificação ou transformação estrutural.
+* **Características:**
+  * Histórico imutável (*append-only*).
+  * Metadados de rastreabilidade: `_data_extracao`, `_programa`.
+  * Preservação de erros, valores nulos e representações de origem para fins de auditoria e conformidade técnica.
 
-**Acesso:** Requer VPN ativa. Conexão via `cx_Oracle` + SQLAlchemy.
+### 3.2 Camada Prata (Cleaned & Curated)
+* **Localização:** `armazenamento/prata/<programa>/ano=YYYY/mes=MM/`
+* **Formato:** Apache Parquet com compressão Snappy.
+* **Propósito:** Dados higienizados, tipados e deduplicados por chave de negócio.
+* **Regras de Tratamento:**
+  * **Matrícula:** Filtragem estrita de caracteres não numéricos (`\D`) e anulação de campos vazios (`NULL`).
+  * **CPF:** Higienização de pontuação, aplicação de preenchimento `LPAD 11` (zeros à esquerda) e validação de comprimento.
+  * **Nomes:** Conversão padronizada para caixa alta (`UPPER`) e remoção de múltiplos espaços em branco intermediários.
+  * **Deduplicação:**
+    * *Bolsa Presença:* Chave composta `(MATRICULA, ANO, MES)`.
+    * *Pé-de-Meia:* Chave composta `(MATRICULA, ANO)`.
+    * *UPT:* Chave `(NUMERO_INSCRICAO)`.
 
-### PostgreSQL
-Hospeda os programas:
-- **Universidade Para Todos (UPT)** — `tb_universidade_para_todos`
-- **Pé-de-Meia** — `tb_pe_de_meia`
-
-**Acesso:** Requer VPN ativa. Conexão via `psycopg2` + SQLAlchemy.
-
----
-
-## 4. Orquestração (Apache Airflow)
-
-### DAGs Disponíveis
-
-| DAG | Agendamento | Descrição |
-|---|---|---|
-| `pipeline_completa_sec_mais` | 02:00 diário | Todos os 4 programas em paralelo |
-| `bolsa_presenca` | 01:00 diário | Apenas Bolsa Presença |
-| `universidade_para_todos` | 01:30 diário | Apenas UPT |
-| `mais_estudos` | 01:15 diário | Apenas Mais Estudos |
-| `pe_de_meia` | 01:45 diário | Apenas Pé-de-Meia |
-
-### Fluxo de Tarefas (por programa)
-
-```
-verificar_vpn → extrair → bronze_prata → prata_ouro
-```
-
-O `verificar_vpn` usa `ShortCircuitOperator`: se a VPN não estiver ativa,
-o pipeline inteiro é interrompido sem erro (marcado como "skipped").
+### 3.3 Camada Ouro (Dimensional Star Schema)
+* **Localização:** `armazenamento/ouro/`
+* **Formato:** Apache Parquet com compressão Snappy.
+* **Propósito:** Dados estruturados no modelo dimensional de Ralph Kimball.
+* **Estrutura:**
+  * `fato_beneficio_estudante.parquet` (Grão: 1 linha por Estudante × Programa × Período).
+  * `dim_estudante.parquet` (Surrogate Key, CPF mascarado sob LGPD).
+  * `dim_programa.parquet` (Catálogo, órgãos gestores e regras de interpretação).
+  * `dim_tempo.parquet` (Tratamento para calendários mensais e anuais).
+  * `dim_municipio.parquet` (Localidades do Estado da Bahia).
 
 ---
 
-## 5. Modelagem Analítica (dbt)
+## 4. O Data Warehouse Analítico (PostgreSQL em Docker)
 
-### Camada Staging
+Para viabilizar consultas SQL de alta performance, cruzamentos relacionais e servir a camada semântica com visões agregadas, o projeto implementa um **Data Warehouse em container Docker**:
 
-Views que leem diretamente dos Parquets da camada ouro via DuckDB:
-
-- `stg_bolsa_presenca` — Dados do Bolsa Presença
-- `stg_universidade_para_todos` — Dados do UPT
-- `stg_mais_estudos` — Dados do Mais Estudos
-- `stg_pe_de_meia` — Dados do Pé-de-Meia
-
-### Camada Marts
-
-Tabelas dimensionais e de fatos:
-
-- `dim_estudante` — Beneficiários únicos consolidados de todos os programas
-- `dim_programa` — Catálogo dos 4 programas com metadados
-- `fct_beneficios` — Fato principal: um registro por benefício, com chaves para as dimensões
+* **Engine:** PostgreSQL 16 Alpine (`sec_mais_postgres_dw`).
+* **Porta:** `5432` no host local.
+* **Banco:** `sec_mais_dw`.
+* **Schemas:**
+  * **`ouro`:** Contém as 5 tabelas físicas do Star Schema, carregadas pelo orquestrador e indexadas nas chaves primárias e estrangeiras.
+  * **`marts`:** Contém as visões analíticas (`views_marts.sql`) prontas para consumo por ferramentas de BI, analistas e gestores educacionais.
 
 ---
 
-## 6. Decisões Técnicas
+## 5. Decisões de Engenharia e Justificativas Técnicas
 
-### 6.1 Por que não usar Docker para extração?
+### 5.1 Por que a extração roda no Host Windows e não em Docker?
+* **Causa:** As bases de dados corporativas da SEC-BA (Oracle SIADIANTE e PostgreSQL UPT/SIGEDUC) são protegidas e acessíveis **exclusivamente via VPN corporativa**.
+* **Impacto no Docker/WSL2:** No Windows, interfaces de rede de contêineres Docker e subsistemas WSL2 criam comutadores virtuais (*vEthernet*) que não herdam automaticamente as rotas nem resolvem os nomes DNS corporativos da VPN estadual instalada no host.
+* **Solução:** A extração foi projetada para rodar via Python nativo no ambiente virtual do host Windows, garantindo acesso pleno e transparente ao túnel VPN.
 
-As bases Oracle e PostgreSQL são acessíveis **exclusivamente via VPN corporativa**.
-Em Windows, containers Docker não herdam automaticamente a configuração da VPN da máquina host.
-Portanto, os processos de extração rodam **diretamente na máquina local** com Python.
+### 5.2 Por que o PostgreSQL DW roda em Docker?
+* O DW local não depende da VPN da SEC-BA (ele recebe os dados já extraídos e higienizados).
+* O Docker fornece isolamento completo, reprodutibilidade imediata em qualquer máquina via `docker-compose up -d`, sem necessidade de instalar ou configurar serviços de banco de dados pesados no Windows do usuário.
 
-As transformações Spark e o Airflow também rodam localmente, eliminando qualquer dependência
-de containers e garantindo acesso à VPN.
+### 5.3 Por que Dupla Persistência (Parquet + PostgreSQL)?
+* **Arquivos Parquet:** Garantem a portabilidade do Data Lake, backup imutável, facilidade de compartilhamento acadêmico e leitura colunar ultra-rápida via Pandas/PyArrow.
+* **PostgreSQL DW:** Oferece capacidade relacional completa (índices B-Tree, constraints, chaves estrangeiras, visões SQL complexas e conectividade direta com ferramentas de BI como Power BI, Metabase e DBeaver).
 
-### 6.2 Por que armazenamento local em vez de nuvem?
+### 5.4 Por que Pandas e PyArrow em vez de PySpark local?
+* **Viabilidade Técnica:** Executar Apache Spark localmente em ambiente Windows corporativo impõe dependências complexas de Java (`JAVA_HOME`), binários `winutils.exe` do Hadoop e alto consumo de memória RAM.
+* **Performance:** Para o volume de dados do projeto (amostragens controladas de até 600.000 registros por carga mensal), a combinação **Pandas + PyArrow** executa a higienização e modelagem dimensional em segundos, com menor consumo de recursos e zero fricção de configuração.
 
-Decisão de custo zero: os dados são armazenados localmente em `armazenamento/`.
-O formato Parquet com compressão Snappy oferece:
-- Excelente relação espaço/desempenho
-- Compatibilidade nativa com Spark e DuckDB
-- Leitura colunar eficiente para análises
-
-### 6.3 Por que DuckDB no dbt?
-
-O DuckDB lê arquivos Parquet diretamente do sistema de arquivos, sem necessidade de um
-servidor de banco de dados separado. É ideal para análises locais com alto desempenho.
-
-### 6.4 Por que pydantic-settings para configurações?
-
-- Validação de tipos em tempo de execução
-- Leitura automática de variáveis de ambiente e arquivos `.env`
-- Erros claros quando configurações obrigatórias estão ausentes
-- Suporte a valores padrão seguros
+### 5.5 Por que um Orquestrador Python Nativo (`pipeline_runner.py`)?
+* **Incompatibilidade do Airflow no Windows:** O Apache Airflow não possui suporte nativo ao Windows (depende de chamadas POSIX e compilação C++ durante a instalação de pacotes).
+* **Solução:** O `pipeline_runner.py` fornece uma interface modular CLI (`--etapa prata`, `--etapa ouro`, `--etapa dw`, `--etapa testes`), com logs detalhados via Loguru, controle de falhas e compatibilidade total com o Agendador de Tarefas do Windows (Task Scheduler).
 
 ---
 
-## 7. Configurações Necessárias
+## 6. Governança e Conformidade com a LGPD
 
-### Arquivo `.env` (baseado em `.env.example`)
-
-```ini
-# Oracle (Bolsa Presença e Mais Estudos)
-ORACLE_HOST=<ip-ou-hostname-do-oracle>
-ORACLE_PORT=1521
-ORACLE_SERVICE=<nome-do-servico>
-ORACLE_USER=<usuario>
-ORACLE_PASSWORD=<senha>
-ORACLE_SCHEMA=<schema>
-
-# PostgreSQL (UPT e Pé-de-Meia)
-PG_HOST=<ip-ou-hostname-do-postgres>
-PG_PORT=5432
-PG_DATABASE=<nome-do-banco>
-PG_USER=<usuario>
-PG_PASSWORD=<senha>
-PG_SCHEMA=<schema>
-```
-
-### Pré-requisitos do Sistema
-
-- **Java 11+** instalado e `JAVA_HOME` configurado (para o Spark)
-- **Python 3.11+**
-- **Oracle Instant Client** instalado (para `cx_Oracle`)
-- **VPN** configurada e ativa durante as extrações
-
----
-
-## 8. Monitoramento e Logs
-
-Os logs são gerados com `loguru` em dois destinos:
-
-1. **Console** — Colorido, em tempo real, com nível configurável via `LOG_LEVEL`
-2. **Arquivo** — `logs/sec_mais_YYYY-MM-DD.log`, com rotação automática (10 MB) e
-   retenção de 30 dias, comprimido em `.zip`
-
-O Airflow fornece monitoramento adicional das DAGs via interface web (`http://localhost:8080`).
+1. **Anonimização de Chaves:** A chave do estudante (`id_estudante`) é uma *Surrogate Key* gerada via Hash criptográfico dos identificadores naturais, impedindo o rastreamento direto de cidadãos nas consultas dimensionais.
+2. **Mascaramento de Dados Pessoais:** O CPF do estudante é mascarado no formato `***.456.789-**` na dimensão `dim_estudante`.
+3. **Segregação de Credenciais:** As senhas e endpoints das fontes transacionais são gerenciados estritamente via arquivo `.env` (ignorado no Git) e validados em tempo de execução com `pydantic-settings`.
