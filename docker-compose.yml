@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  postgres_dw:
+    image: postgres:16-alpine
+    container_name: sec_mais_postgres_dw
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DW_DATABASE:-sec_mais_dw}
+      POSTGRES_USER: ${PG_DW_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_DW_PASSWORD:-secmais_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${PG_DW_PORT:-5432}:5432"
+    volumes:
+      - sec_mais_pgdata:/var/lib/postgresql/data
+      - ./docker/init_dw.sql:/docker-entrypoint-initdb.d/01_init_dw.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_DW_USER:-postgres} -d ${PG_DW_DATABASE:-sec_mais_dw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sec_mais_pgdata:
+    name: sec_mais_pgdata

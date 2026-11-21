@@ -29,20 +29,28 @@ NOME_PROGRAMA = "bolsa_presenca"
 # ANO e MES são extraídos dinamicamente do campo TIMESTAMP DATA_INCLUSAO
 # Amostra representativa de 100.000 registros para o pipeline e evidências do TCC
 QUERY_BOLSA_PRESENCA = """
-    SELECT 
-        bf.NUMERO_MATRICULA,
-        bf.NOME_ESTUDANTE,
-        bf.CODSEC,
-        bf.MUNICIPIO,
-        TO_NUMBER(TO_CHAR(bf.DATA_INCLUSAO, 'YYYY')) AS ANO,
-        TO_NUMBER(TO_CHAR(bf.DATA_INCLUSAO, 'MM')) AS MES,
-        bf.VALOR,
-        sm.STATUS AS STATUS_BOLSA_PRESENCA,
-        bf.CPF_RESPONSAVEL
+WITH ultima_carga AS (
+    SELECT
+        TRUNC(MAX(bf.DATA_INCLUSAO), 'MM') AS MES_CARGA
     FROM {schema}.BENEFICIO_FAMILIA bf
-    LEFT JOIN {schema}.STATUS_MENSAGEM sm 
-        ON bf.ID_STATUS_MENSAGEM = sm.ID_STATUS_MENSAGEM
-    WHERE ROWNUM <= 100000
+    WHERE bf.DATA_INCLUSAO >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -1)
+      AND bf.DATA_INCLUSAO <  ADD_MONTHS(TRUNC(SYSDATE, 'MM'),  1)
+)
+SELECT
+    bf.NUMERO_MATRICULA,
+    bf.NOME_ESTUDANTE,
+    bf.CODSEC,
+    bf.MUNICIPIO,
+    TO_NUMBER(TO_CHAR(bf.DATA_INCLUSAO, 'YYYY')) AS ANO,
+    TO_NUMBER(TO_CHAR(bf.DATA_INCLUSAO, 'MM')) AS MES,
+    bf.VALOR,
+    sm.STATUS AS STATUS_BOLSA_PRESENCA,
+    bf.CPF_RESPONSAVEL
+FROM {schema}.BENEFICIO_FAMILIA bf
+INNER JOIN {schema}.STATUS_MENSAGEM sm
+    ON bf.ID_STATUS_MENSAGEM = sm.ID_STATUS_MENSAGEM
+CROSS JOIN ultima_carga uc
+WHERE TRUNC(bf.DATA_INCLUSAO, 'MM') = uc.MES_CARGA
 """
 # =============================================================================
 

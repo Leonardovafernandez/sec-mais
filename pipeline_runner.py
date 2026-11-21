@@ -42,18 +42,17 @@ def extrair_serie(df: pd.DataFrame, col: str, valor_padrao=None) -> pd.Series:
 
 def limpar_matricula(s):
     val = pd.Series(s).astype(str).str.replace(r"\D", "", regex=True).str.strip()
-    return val.replace({"": None, "nan": None, "None": None, "null": None})
+    return val.apply(lambda x: str(x) if pd.notna(x) and str(x).isdigit() and len(str(x)) > 0 and x not in ["nan", "None", "null"] else None)
 
 
 def limpar_cpf(s):
     val = pd.Series(s).astype(str).str.replace(r"\D", "", regex=True).str.strip()
-    val = val.replace({"": None, "nan": None, "None": None, "null": None})
     return val.apply(lambda x: str(x).zfill(11) if pd.notna(x) and str(x).isdigit() and len(str(x)) <= 11 else None)
 
 
 def limpar_nome(s):
     val = pd.Series(s).astype(str).str.strip().str.upper().str.replace(r"\s+", " ", regex=True)
-    return val.replace({"": None, "NAN": None, "NONE": None, "NULL": None})
+    return val.apply(lambda x: x if x and x not in ["", "NAN", "NONE", "NULL"] else None)
 
 
 def executar_transformacao_prata(ano: int = 2026, mes: int = 11):
@@ -200,9 +199,39 @@ def executar_testes():
         logger.warning("⚠️ Alguns testes falharam ou pytest não instalado no ambiente global.")
 
 
+def executar_modelagem_dimensional_ouro():
+    """Executa a modelagem dimensional Kimball: fato_beneficio_estudante e dimensões."""
+    logger.info("🏛️ [ETAPA 3 & 4] Iniciando Modelagem Dimensional Ouro (Star Schema)...")
+    try:
+        from transformacao.modelagem_ouro import executar_modelagem_ouro
+        tabelas = executar_modelagem_ouro()
+        logger.info(f"✅ Camada Ouro modelada e persistida em Parquet e PostgreSQL ({len(tabelas)} estruturas)!")
+        return tabelas
+    except Exception as e:
+        logger.error(f"❌ Erro na modelagem dimensional ouro: {e}")
+        raise
+
+
+def executar_carga_dw():
+    """Aplica as visões analíticas da camada marts no PostgreSQL (Docker)."""
+    logger.info("📊 [ETAPA 5] Verificando Visões Analíticas no PostgreSQL DW...")
+    try:
+        from transformacao.modelagem_ouro import aplicar_views_marts, configuracoes_postgres_dw
+        from sqlalchemy import create_engine
+        conn_str = (
+            f"postgresql+psycopg2://{configuracoes_postgres_dw.user}:{configuracoes_postgres_dw.password}"
+            f"@{configuracoes_postgres_dw.host}:{configuracoes_postgres_dw.port}/{configuracoes_postgres_dw.database}"
+        )
+        engine = create_engine(conn_str)
+        aplicar_views_marts(engine)
+        logger.info("✅ Visões analíticas verificadas com sucesso!")
+    except Exception as e:
+        logger.warning(f"⚠️ Erro ao atualizar views no PostgreSQL DW (verifique Docker): {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Orquestrador SEC MAIS — Pipeline de Engenharia de Dados")
-    parser.add_argument("--etapa", choices=["todos", "prata", "ouro", "testes"], default="todos", help="Etapa a executar")
+    parser.add_argument("--etapa", choices=["todos", "prata", "ouro", "testes", "dw"], default="todos", help="Etapa a executar")
     args = parser.parse_args()
 
     logger.info("=" * 70)
@@ -223,6 +252,10 @@ def main():
             df_bp = pd.read_parquet(arqs_bp[0]) if arqs_bp else pd.DataFrame()
 
         executar_integracao_ouro(df_pdm, df_upt, df_bp)
+        executar_modelagem_dimensional_ouro()
+
+    if args.etapa in ["todos", "dw"]:
+        executar_carga_dw()
 
     if args.etapa in ["todos", "testes"]:
         executar_testes()

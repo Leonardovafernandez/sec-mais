@@ -32,11 +32,11 @@ QUERY_UPT = """
         i.ID AS NUMERO_INSCRICAO,
         si.STATUS AS STATUS_UPT
     FROM {schema}.USUARIO u
-    LEFT JOIN {schema}.DADO_CANDIDATO dc ON u.ID = dc.USUARIO_ID
-    LEFT JOIN {schema}.DADOS_PESSOAIS dp ON u.ID = dp.USUARIO_ID
-    LEFT JOIN {schema}.INSCRICAO i ON u.ID = i.USUARIO_ID
-    LEFT JOIN {schema}.VW_STATUS_INSCRICOES vsi ON i.ID = vsi.INSCRICAO_ID
-    LEFT JOIN {schema}.STATUS_INSCRICAO si ON vsi.STATUS_INSCRICAO_ID = si.ID
+    INNER JOIN {schema}.DADO_CANDIDATO dc ON u.ID = dc.USUARIO_ID
+    INNER JOIN {schema}.DADOS_PESSOAIS dp ON u.ID = dp.USUARIO_ID
+    INNER JOIN {schema}.INSCRICAO i ON u.ID = i.USUARIO_ID
+    INNER JOIN {schema}.VW_STATUS_INSCRICOES vsi ON i.ID = vsi.INSCRICAO_ID
+    INNER JOIN {schema}.STATUS_INSCRICAO si ON vsi.STATUS_INSCRICAO_ID = si.ID
 """
 # =============================================================================
 

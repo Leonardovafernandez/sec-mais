@@ -15,18 +15,17 @@ import numpy as np
 # ==============================================================================
 def limpar_matricula(s):
     val = pd.Series(s).astype(str).str.replace(r"\D", "", regex=True).str.strip()
-    return val.replace({"": None, "nan": None, "None": None, "null": None})
+    return val.apply(lambda x: str(x) if pd.notna(x) and str(x).isdigit() and len(str(x)) > 0 and x not in ["nan", "None", "null"] else None)
 
 
 def limpar_cpf(s):
     val = pd.Series(s).astype(str).str.replace(r"\D", "", regex=True).str.strip()
-    val = val.replace({"": None, "nan": None, "None": None, "null": None})
     return val.apply(lambda x: str(x).zfill(11) if pd.notna(x) and str(x).isdigit() and len(str(x)) <= 11 else None)
 
 
 def limpar_nome(s):
     val = pd.Series(s).astype(str).str.strip().str.upper().str.replace(r"\s+", " ", regex=True)
-    return val.replace({"": None, "NAN": None, "NONE": None, "NULL": None})
+    return val.apply(lambda x: x if x and x not in ["", "NAN", "NONE", "NULL"] else None)
 
 
 # ==============================================================================

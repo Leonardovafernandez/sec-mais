@@ -121,6 +121,19 @@ class ConfiguracoesPostgresPDM(ConfiguracoesPostgres):
     sslmode: str = Field(default="prefer", validation_alias="PG_PDM_SSLMODE")
 
 
+class ConfiguracoesPostgresDW(ConfiguracoesPostgres):
+    """Configurações de conexão para o Data Warehouse Analítico local (PostgreSQL Docker - Sprint 3)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="PG_DW_",
+        env_file=ARQUIVOS_ENV,
+        extra="ignore",
+    )
+    database: str = Field(default="sec_mais_dw")
+    schema_name: str = Field(default="ouro", validation_alias="PG_DW_SCHEMA")
+    sslmode: str = Field(default="disable", validation_alias="PG_DW_SSLMODE")
+
+
 class ConfiguracoesSpark(BaseSettings):
     """Configurações do Apache Spark."""
 
@@ -173,4 +186,5 @@ configuracoes_oracle = ConfiguracoesOracle()
 configuracoes_postgres = ConfiguracoesPostgres()
 configuracoes_postgres_upt = ConfiguracoesPostgresUPT()
 configuracoes_postgres_pdm = ConfiguracoesPostgresPDM()
+configuracoes_postgres_dw = ConfiguracoesPostgresDW()
 configuracoes_spark = ConfiguracoesSpark()
